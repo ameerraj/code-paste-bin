@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Realtime Pastebin</title>
+  <style>
+    body { background:#1e1e1e; color:#eee; font-family:sans-serif; margin:0; padding:1rem; }
+    textarea { width:100%; height:80vh; background:#2d2d2d; color:#fff;
+               border:1px solid #444; font-family:monospace; font-size:1rem; padding:1rem; }
+  </style>
+</head>
+<body>
+  <input id="sessionCode" placeholder="Enter 2-digit code (e.g. AB)" maxlength="4">
+  <button id="connectBtn">Connect</button>
+  <textarea id="output" placeholder="Type here..."></textarea>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "code-paste-bin.firebaseapp.com",
+      databaseURL: "https://code-paste-bin-default-rtdb.firebaseio.com",
+      projectId: "code-paste-bin",
+      storageBucket: "code-paste-bin.firebasestorage.app",
+      messagingSenderId: "803684676109",
+      appId: "1:803684676109:web:c97c23cae2c0df14615b44"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+
+    const output = document.getElementById("output");
+    const btn = document.getElementById("connectBtn");
+    const codeInput = document.getElementById("sessionCode");
+
+    btn.addEventListener("click", () => {
+      const code = codeInput.value.trim().toUpperCase();
+      if (!code) return alert("Enter a code first.");
+      const pasteRef = ref(db, "paste/" + code);
+      let isLocalChange = false;
+
+      // Listen for remote updates
+      onValue(pasteRef, (snapshot) => {
+        const val = snapshot.val() || "";
+        if (!isLocalChange && val !== output.value) {
+          output.value = val;
+        }
+        isLocalChange = false;
+      });
+
+      // Send local edits
+      output.addEventListener("input", () => {
+        isLocalChange = true;
+        set(pasteRef, output.value);
+      });
+
+      alert("Connected to room " + code);
+    });
+  </script>
+</body>
+</html>
