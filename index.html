@@ -1,128 +1,198 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin v2.1</title>
+    <title>Code Paste Bin – Live Dark Mode</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <script type="module">
-      // Import Firebase modules
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-      import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+      import {
+        getDatabase,
+        ref,
+        set,
+        onValue,
+      } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-      // --- your Firebase config here ---
+      // === 🔧 Firebase Config ===
       const firebaseConfig = {
         apiKey: "AIzaSyBXpUy7FLhGQOQ9mknPTu2Ac43XAtuHxQg",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+        databaseURL:
+          "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
         projectId: "YOUR_PROJECT_ID",
       };
 
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      async function savePaste() {
-        const mainContent = document.getElementById("mainContent").value.trim();
-        const notes = document.getElementById("notes").value.trim();
-        const imageFile = document.getElementById("imageFile").files[0];
+      // single live node
+      const pasteRef = ref(db, "livePasteDark");
 
-        let imageBase64 = "";
-        if (imageFile) {
-          imageBase64 = await toBase64(imageFile);
-        }
+      let saveTimer;
+      const debounceSave = () => {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveData, 500);
+      };
 
-        await push(ref(db, "pastes"), {
-          sectionA: mainContent,
+      async function saveData() {
+        const code = document.getElementById("codeBox").value;
+        const notes = document.getElementById("notesBox").value;
+        const codeImg = document.getElementById("codeImgPreview").src || "";
+        const notesImg = document.getElementById("notesImgPreview").src || "";
+
+        await set(pasteRef, {
+          sectionA: code,
           sectionB: notes,
-          imageBase64,
+          imageA: codeImg,
+          imageB: notesImg,
           timestamp: Date.now(),
         });
-
-        alert("Saved successfully!");
-        document.getElementById("mainContent").value = "";
-        document.getElementById("notes").value = "";
-        document.getElementById("imageFile").value = "";
-        document.getElementById("imagePreview").src = "";
       }
 
-      function toBase64(file) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = (error) => reject(error);
-          reader.readAsDataURL(file);
-        });
-      }
-
-      // Preview image instantly
       document.addEventListener("DOMContentLoaded", () => {
-        document.getElementById("imageFile").addEventListener("change", (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-          const reader = new FileReader();
-          reader.onload = () => {
-            document.getElementById("imagePreview").src = reader.result;
-          };
-          reader.readAsDataURL(file);
+        const codeBox = document.getElementById("codeBox");
+        const notesBox = document.getElementById("notesBox");
+        const codeFile = document.getElementById("codeImg");
+        const notesFile = document.getElementById("notesImg");
+        const codeImgPreview = document.getElementById("codeImgPreview");
+        const notesImgPreview = document.getElementById("notesImgPreview");
+
+        // live sync
+        onValue(pasteRef, (snapshot) => {
+          const data = snapshot.val();
+          if (!data) return;
+          if (codeBox.value !== data.sectionA)
+            codeBox.value = data.sectionA || "";
+          if (notesBox.value !== data.sectionB)
+            notesBox.value = data.sectionB || "";
+          if (data.imageA) codeImgPreview.src = data.imageA;
+          if (data.imageB) notesImgPreview.src = data.imageB;
         });
+
+        // auto save typing
+        codeBox.addEventListener("input", debounceSave);
+        notesBox.addEventListener("input", debounceSave);
+
+        // image handlers
+        codeFile.addEventListener("change", (e) =>
+          handleImageChange(e, codeImgPreview)
+        );
+        notesFile.addEventListener("change", (e) =>
+          handleImageChange(e, notesImgPreview)
+        );
       });
-    </script>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        background: #f7f7f7;
-        display: flex;
-        justify-content: center;
-        align-items: flex-start;
-        padding: 30px;
+
+      function handleImageChange(e, previewEl) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          previewEl.src = reader.result;
+          saveData();
+        };
+        reader.readAsDataURL(file);
       }
-      .container {
-        background: #fff;
-        border-radius: 12px;
-        box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
-        width: 500px;
-        padding: 20px;
+    </script>
+
+    <style>
+      :root {
+        --bg: #0f1117;
+        --panel: #1b1e27;
+        --text: #e4e6eb;
+        --accent: #4a90e2;
+        --border: #2a2e3d;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Inter", sans-serif;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+      header {
+        text-align: center;
+        padding: 10px 0;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        font-weight: 600;
+        letter-spacing: 0.5px;
+      }
+      .workspace {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+      .pane {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        padding: 15px;
+        border-right: 1px solid var(--border);
+      }
+      .pane:last-child {
+        border-right: none;
       }
       textarea {
-        width: 100%;
-        height: 120px;
-        margin-bottom: 10px;
-        padding: 8px;
+        flex: 1;
+        background: var(--panel);
+        border: 1px solid var(--border);
+        color: var(--text);
+        resize: none;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 15px;
+        padding: 10px;
+        border-radius: 8px;
+        outline: none;
+      }
+      textarea:focus {
+        border-color: var(--accent);
+      }
+      label {
+        margin-top: 10px;
+        font-size: 14px;
+        color: #aaa;
+      }
+      input[type="file"] {
+        margin-top: 6px;
+        color: var(--text);
       }
       img {
         max-width: 100%;
         max-height: 200px;
-        display: block;
-        margin-top: 10px;
-      }
-      button {
-        width: 100%;
-        background: #007bff;
-        color: white;
-        border: none;
-        padding: 10px;
-        font-size: 16px;
-        border-radius: 6px;
-        cursor: pointer;
-      }
-      button:hover {
-        background: #0056b3;
+        border-radius: 8px;
+        margin-top: 8px;
+        background: #000;
+        object-fit: contain;
       }
     </style>
   </head>
+
   <body>
-    <div class="container">
-      <h2>📋 Code Paste Bin v2.1 (HTML + Firebase)</h2>
-      <label>Main Content</label>
-      <textarea id="mainContent" placeholder="Write your main content..."></textarea>
+    <header>⚡ Code Paste Bin (Dark Live Mode)</header>
+    <div class="workspace">
+      <div class="pane">
+        <h3>💻 Code</h3>
+        <textarea id="codeBox" placeholder="Type or paste your code here..."></textarea>
+        <label for="codeImg">Attach image (optional)</label>
+        <input type="file" id="codeImg" accept="image/*" />
+        <img id="codeImgPreview" alt="Code image preview" />
+      </div>
 
-      <label>Notes</label>
-      <textarea id="notes" placeholder="Write your notes..."></textarea>
-
-      <label>Attach an Image (optional)</label>
-      <input type="file" id="imageFile" accept="image/*" />
-      <img id="imagePreview" alt="Preview" />
-
-      <button onclick="savePaste()">Save Paste</button>
+      <div class="pane">
+        <h3>📝 Notes</h3>
+        <textarea id="notesBox" placeholder="Write your notes here..."></textarea>
+        <label for="notesImg">Attach image (optional)</label>
+        <input type="file" id="notesImg" accept="image/*" />
+        <img id="notesImgPreview" alt="Notes image preview" />
+      </div>
     </div>
   </body>
 </html>
-
