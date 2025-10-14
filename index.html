@@ -1,64 +1,127 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Realtime Pastebin</title>
-  <style>
-    body { background:#1e1e1e; color:#eee; font-family:sans-serif; margin:0; padding:1rem; }
-    textarea { width:100%; height:80vh; background:#2d2d2d; color:#fff;
-               border:1px solid #444; font-family:monospace; font-size:1rem; padding:1rem; }
-  </style>
-</head>
-<body>
-  <input id="sessionCode" placeholder="Enter 2-digit code (e.g. AB)" maxlength="4">
-  <button id="connectBtn">Connect</button>
-  <textarea id="output" placeholder="Type here..."></textarea>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Code Paste Bin v2.1</title>
+    <script type="module">
+      // Import Firebase modules
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+      import { getDatabase, ref, push } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
-    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
+      // --- your Firebase config here ---
+      const firebaseConfig = {
+        apiKey: "YOUR_API_KEY",
+        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+        databaseURL: "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
+        projectId: "YOUR_PROJECT_ID",
+      };
 
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "code-paste-bin.firebaseapp.com",
-      databaseURL: "https://code-paste-bin-default-rtdb.europe-west1.firebasedatabase.app",
-      projectId: "code-paste-bin",
-      storageBucket: "code-paste-bin.firebasestorage.app",
-      messagingSenderId: "803684676109",
-      appId: "1:803684676109:web:c97c23cae2c0df14615b44"
-    };
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
 
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
+      async function savePaste() {
+        const mainContent = document.getElementById("mainContent").value.trim();
+        const notes = document.getElementById("notes").value.trim();
+        const imageFile = document.getElementById("imageFile").files[0];
 
-    const output = document.getElementById("output");
-    const btn = document.getElementById("connectBtn");
-    const codeInput = document.getElementById("sessionCode");
-
-    btn.addEventListener("click", () => {
-      const code = codeInput.value.trim().toUpperCase();
-      if (!code) return alert("Enter a code first.");
-      const pasteRef = ref(db, "paste/" + code);
-      let isLocalChange = false;
-
-      // Listen for remote updates
-      onValue(pasteRef, (snapshot) => {
-        const val = snapshot.val() || "";
-        if (!isLocalChange && val !== output.value) {
-          output.value = val;
+        let imageBase64 = "";
+        if (imageFile) {
+          imageBase64 = await toBase64(imageFile);
         }
-        isLocalChange = false;
-      });
 
-      // Send local edits
-      output.addEventListener("input", () => {
-        isLocalChange = true;
-        set(pasteRef, output.value);
-      });
+        await push(ref(db, "pastes"), {
+          sectionA: mainContent,
+          sectionB: notes,
+          imageBase64,
+          timestamp: Date.now(),
+        });
 
-      alert("Connected to room " + code);
-    });
-  </script>
-</body>
+        alert("Saved successfully!");
+        document.getElementById("mainContent").value = "";
+        document.getElementById("notes").value = "";
+        document.getElementById("imageFile").value = "";
+        document.getElementById("imagePreview").src = "";
+      }
+
+      function toBase64(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      // Preview image instantly
+      document.addEventListener("DOMContentLoaded", () => {
+        document.getElementById("imageFile").addEventListener("change", (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          const reader = new FileReader();
+          reader.onload = () => {
+            document.getElementById("imagePreview").src = reader.result;
+          };
+          reader.readAsDataURL(file);
+        });
+      });
+    </script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f7f7f7;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        padding: 30px;
+      }
+      .container {
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 0 8px rgba(0, 0, 0, 0.1);
+        width: 500px;
+        padding: 20px;
+      }
+      textarea {
+        width: 100%;
+        height: 120px;
+        margin-bottom: 10px;
+        padding: 8px;
+      }
+      img {
+        max-width: 100%;
+        max-height: 200px;
+        display: block;
+        margin-top: 10px;
+      }
+      button {
+        width: 100%;
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>📋 Code Paste Bin v2.1 (HTML + Firebase)</h2>
+      <label>Main Content</label>
+      <textarea id="mainContent" placeholder="Write your main content..."></textarea>
+
+      <label>Notes</label>
+      <textarea id="notes" placeholder="Write your notes..."></textarea>
+
+      <label>Attach an Image (optional)</label>
+      <input type="file" id="imageFile" accept="image/*" />
+      <img id="imagePreview" alt="Preview" />
+
+      <button onclick="savePaste()">Save Paste</button>
+    </div>
+  </body>
 </html>
-
