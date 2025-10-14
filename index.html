@@ -2,11 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin </title>
+    <title>Code Paste Bin – Rooms + Live Sync (Compressed)</title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
     />
+
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
       import {
@@ -16,6 +17,7 @@
         onValue,
       } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
+      // === 🔧 Firebase Config ===
       const firebaseConfig = {
         apiKey: "AIzaSyBXpUy7FLhGQOQ9mknPTu2Ac43XAtuHxQg",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -31,7 +33,7 @@
       let pasteRef = null;
       let saveTimer;
 
-      // join button logic
+      // === 🧩 Join Room ===
       window.joinRoom = function () {
         const input = document.getElementById("roomInput");
         const room = input.value.trim().toUpperCase();
@@ -49,6 +51,7 @@
         initRealtimeSync();
       };
 
+      // === 🧠 Initialize Live Sync ===
       function initRealtimeSync() {
         const codeBox = document.getElementById("codeBox");
         const notesBox = document.getElementById("notesBox");
@@ -98,14 +101,33 @@
         });
       }
 
+      // === 🖼 Compress image before save ===
+      async function compressBase64(base64, maxWidth = 800, quality = 0.7) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const canvas = document.createElement("canvas");
+            const scale = Math.min(1, maxWidth / img.width);
+            canvas.width = img.width * scale;
+            canvas.height = img.height * scale;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL("image/jpeg", quality));
+          };
+          img.src = base64;
+        });
+      }
+
+      // === 📋 Handle image paste ===
       function handlePaste(e, previewEl) {
         const items = e.clipboardData.items;
         for (const item of items) {
           if (item.type.indexOf("image") !== -1) {
             const file = item.getAsFile();
             const reader = new FileReader();
-            reader.onload = (event) => {
-              previewEl.src = event.target.result;
+            reader.onload = async (event) => {
+              const compressed = await compressBase64(event.target.result);
+              previewEl.src = compressed;
               saveData();
             };
             reader.readAsDataURL(file);
@@ -231,7 +253,7 @@
 
   <body>
     <header>
-         Code Paste Bin 
+      ⚡ Code Paste Bin (Dark Mode – Live + Room Code)
       <br />
       Room: <span id="roomLabel">None</span>
     </header>
@@ -244,7 +266,7 @@
 
     <div class="workspace" id="workspace">
       <div class="pane">
-        <h3></h3> Code</h3>
+        <h3>💻 Code</h3>
         <textarea
           id="codeBox"
           placeholder="Type or paste your code here (Ctrl+V images to attach)..."
@@ -254,7 +276,7 @@
       </div>
 
       <div class="pane">
-        <h3> Notes</h3>
+        <h3>📝 Notes</h3>
         <textarea
           id="notesBox"
           placeholder="Write notes here (Ctrl+V images to attach)..."
