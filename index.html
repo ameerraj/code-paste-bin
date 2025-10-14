@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin – Live Dark Mode</title>
+    <title>Code Paste Bin – Dark Live Paste</title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
@@ -18,7 +18,7 @@
 
       // === 🔧 Firebase Config ===
       const firebaseConfig = {
-        apiKey: "AIzaSyBXpUy7FLhGQOQ9mknPTu2Ac43XAtuHxQg",
+        apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
         databaseURL:
           "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
@@ -28,7 +28,7 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // single live node
+      // one shared document node
       const pasteRef = ref(db, "livePasteDark");
 
       let saveTimer;
@@ -55,8 +55,6 @@
       document.addEventListener("DOMContentLoaded", () => {
         const codeBox = document.getElementById("codeBox");
         const notesBox = document.getElementById("notesBox");
-        const codeFile = document.getElementById("codeImg");
-        const notesFile = document.getElementById("notesImg");
         const codeImgPreview = document.getElementById("codeImgPreview");
         const notesImgPreview = document.getElementById("notesImgPreview");
 
@@ -72,28 +70,34 @@
           if (data.imageB) notesImgPreview.src = data.imageB;
         });
 
-        // auto save typing
+        // text changes → debounce save
         codeBox.addEventListener("input", debounceSave);
         notesBox.addEventListener("input", debounceSave);
 
-        // image handlers
-        codeFile.addEventListener("change", (e) =>
-          handleImageChange(e, codeImgPreview)
+        // paste images directly
+        codeBox.addEventListener("paste", (e) =>
+          handlePaste(e, codeImgPreview)
         );
-        notesFile.addEventListener("change", (e) =>
-          handleImageChange(e, notesImgPreview)
+        notesBox.addEventListener("paste", (e) =>
+          handlePaste(e, notesImgPreview)
         );
       });
 
-      function handleImageChange(e, previewEl) {
-        const file = e.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = () => {
-          previewEl.src = reader.result;
-          saveData();
-        };
-        reader.readAsDataURL(file);
+      function handlePaste(e, previewEl) {
+        const items = e.clipboardData.items;
+        for (const item of items) {
+          if (item.type.indexOf("image") !== -1) {
+            const file = item.getAsFile();
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              previewEl.src = event.target.result;
+              saveData();
+            };
+            reader.readAsDataURL(file);
+            e.preventDefault(); // stop default paste text
+            break;
+          }
+        }
       }
     </script>
 
@@ -155,42 +159,46 @@
       textarea:focus {
         border-color: var(--accent);
       }
-      label {
-        margin-top: 10px;
-        font-size: 14px;
-        color: #aaa;
-      }
-      input[type="file"] {
-        margin-top: 6px;
-        color: var(--text);
+      h3 {
+        margin-top: 0;
+        margin-bottom: 8px;
       }
       img {
         max-width: 100%;
         max-height: 200px;
         border-radius: 8px;
-        margin-top: 8px;
+        margin-top: 10px;
         background: #000;
         object-fit: contain;
+      }
+      p.hint {
+        font-size: 13px;
+        color: #aaa;
+        margin-top: 6px;
       }
     </style>
   </head>
 
   <body>
-    <header>⚡ Code Paste Bin (Dark Live Mode)</header>
+    <header>⚡ Code Paste Bin (Dark Mode – Live + Image Paste)</header>
     <div class="workspace">
       <div class="pane">
         <h3>💻 Code</h3>
-        <textarea id="codeBox" placeholder="Type or paste your code here..."></textarea>
-        <label for="codeImg">Attach image (optional)</label>
-        <input type="file" id="codeImg" accept="image/*" />
+        <textarea
+          id="codeBox"
+          placeholder="Type or paste your code here (Ctrl+V images to attach)..."
+        ></textarea>
+        <p class="hint">Paste an image directly here using Ctrl + V</p>
         <img id="codeImgPreview" alt="Code image preview" />
       </div>
 
       <div class="pane">
         <h3>📝 Notes</h3>
-        <textarea id="notesBox" placeholder="Write your notes here..."></textarea>
-        <label for="notesImg">Attach image (optional)</label>
-        <input type="file" id="notesImg" accept="image/*" />
+        <textarea
+          id="notesBox"
+          placeholder="Write notes here (Ctrl+V images to attach)..."
+        ></textarea>
+        <p class="hint">Paste an image directly here using Ctrl + V</p>
         <img id="notesImgPreview" alt="Notes image preview" />
       </div>
     </div>
