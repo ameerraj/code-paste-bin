@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin – Dark Live Paste</title>
+    <title>Code Paste Bin </title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
@@ -16,7 +16,6 @@
         onValue,
       } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
 
-      // === 🔧 Firebase Config ===
       const firebaseConfig = {
         apiKey: "AIzaSyBXpUy7FLhGQOQ9mknPTu2Ac43XAtuHxQg",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -28,16 +27,63 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // one shared document node
-      const pasteRef = ref(db, "livePasteDark");
-
+      let currentRoom = null;
+      let pasteRef = null;
       let saveTimer;
-      const debounceSave = () => {
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(saveData, 500);
+
+      // join button logic
+      window.joinRoom = function () {
+        const input = document.getElementById("roomInput");
+        const room = input.value.trim().toUpperCase();
+        if (!room) {
+          alert("Enter a room code first!");
+          return;
+        }
+
+        currentRoom = room;
+        pasteRef = ref(db, "rooms/" + room);
+        document.getElementById("joinScreen").style.display = "none";
+        document.getElementById("workspace").style.display = "flex";
+        document.getElementById("roomLabel").textContent = room;
+
+        initRealtimeSync();
       };
 
+      function initRealtimeSync() {
+        const codeBox = document.getElementById("codeBox");
+        const notesBox = document.getElementById("notesBox");
+        const codeImgPreview = document.getElementById("codeImgPreview");
+        const notesImgPreview = document.getElementById("notesImgPreview");
+
+        onValue(pasteRef, (snapshot) => {
+          const data = snapshot.val();
+          if (!data) return;
+          if (codeBox.value !== data.sectionA)
+            codeBox.value = data.sectionA || "";
+          if (notesBox.value !== data.sectionB)
+            notesBox.value = data.sectionB || "";
+          if (data.imageA) codeImgPreview.src = data.imageA;
+          if (data.imageB) notesImgPreview.src = data.imageB;
+        });
+
+        codeBox.addEventListener("input", debounceSave);
+        notesBox.addEventListener("input", debounceSave);
+
+        codeBox.addEventListener("paste", (e) =>
+          handlePaste(e, codeImgPreview)
+        );
+        notesBox.addEventListener("paste", (e) =>
+          handlePaste(e, notesImgPreview)
+        );
+      }
+
+      function debounceSave() {
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveData, 500);
+      }
+
       async function saveData() {
+        if (!pasteRef) return;
         const code = document.getElementById("codeBox").value;
         const notes = document.getElementById("notesBox").value;
         const codeImg = document.getElementById("codeImgPreview").src || "";
@@ -52,37 +98,6 @@
         });
       }
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const codeBox = document.getElementById("codeBox");
-        const notesBox = document.getElementById("notesBox");
-        const codeImgPreview = document.getElementById("codeImgPreview");
-        const notesImgPreview = document.getElementById("notesImgPreview");
-
-        // live sync
-        onValue(pasteRef, (snapshot) => {
-          const data = snapshot.val();
-          if (!data) return;
-          if (codeBox.value !== data.sectionA)
-            codeBox.value = data.sectionA || "";
-          if (notesBox.value !== data.sectionB)
-            notesBox.value = data.sectionB || "";
-          if (data.imageA) codeImgPreview.src = data.imageA;
-          if (data.imageB) notesImgPreview.src = data.imageB;
-        });
-
-        // text changes → debounce save
-        codeBox.addEventListener("input", debounceSave);
-        notesBox.addEventListener("input", debounceSave);
-
-        // paste images directly
-        codeBox.addEventListener("paste", (e) =>
-          handlePaste(e, codeImgPreview)
-        );
-        notesBox.addEventListener("paste", (e) =>
-          handlePaste(e, notesImgPreview)
-        );
-      });
-
       function handlePaste(e, previewEl) {
         const items = e.clipboardData.items;
         for (const item of items) {
@@ -94,7 +109,7 @@
               saveData();
             };
             reader.readAsDataURL(file);
-            e.preventDefault(); // stop default paste text
+            e.preventDefault();
             break;
           }
         }
@@ -121,17 +136,56 @@
         display: flex;
         flex-direction: column;
       }
+
+      /* === Join screen === */
+      #joinScreen {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+      }
+      #joinScreen input {
+        background: var(--panel);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 10px 15px;
+        font-size: 18px;
+        text-align: center;
+        width: 160px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+        font-family: "JetBrains Mono", monospace;
+      }
+      #joinScreen button {
+        margin-top: 15px;
+        background: var(--accent);
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      #joinScreen h2 {
+        margin-bottom: 20px;
+      }
+
       header {
         text-align: center;
         padding: 10px 0;
         background: var(--panel);
         border-bottom: 1px solid var(--border);
         font-weight: 600;
-        letter-spacing: 0.5px;
       }
+      header span {
+        color: var(--accent);
+      }
+
       .workspace {
         flex: 1;
-        display: flex;
+        display: none;
         overflow: hidden;
       }
       .pane {
@@ -159,10 +213,6 @@
       textarea:focus {
         border-color: var(--accent);
       }
-      h3 {
-        margin-top: 0;
-        margin-bottom: 8px;
-      }
       img {
         max-width: 100%;
         max-height: 200px;
@@ -180,10 +230,21 @@
   </head>
 
   <body>
-    <header>⚡ Code Paste Bin (Dark Mode – Live + Image Paste)</header>
-    <div class="workspace">
+    <header>
+         Code Paste Bin 
+      <br />
+      Room: <span id="roomLabel">None</span>
+    </header>
+
+    <div id="joinScreen">
+      <h2>Join a Room</h2>
+      <input id="roomInput" maxlength="8" placeholder="Room Code" />
+      <button onclick="joinRoom()">Join</button>
+    </div>
+
+    <div class="workspace" id="workspace">
       <div class="pane">
-        <h3>💻 Code</h3>
+        <h3></h3> Code</h3>
         <textarea
           id="codeBox"
           placeholder="Type or paste your code here (Ctrl+V images to attach)..."
@@ -193,7 +254,7 @@
       </div>
 
       <div class="pane">
-        <h3>📝 Notes</h3>
+        <h3> Notes</h3>
         <textarea
           id="notesBox"
           placeholder="Write notes here (Ctrl+V images to attach)..."
@@ -204,4 +265,3 @@
     </div>
   </body>
 </html>
-
