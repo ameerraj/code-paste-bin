@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin – Rooms + Live Sync (Compressed)</title>
+    <title>Code Paste Bin – Rooms + Live Sync (Cloudinary CDN)</title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
@@ -29,6 +29,11 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
+      // === 🔧 Cloudinary Config ===
+      const CLOUD_NAME = "do8rmb8aq"; // e.g. "dx123abc"
+      const UPLOAD_PRESET = "public_upload"; // your unsigned preset name
+      const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+
       let currentRoom = null;
       let pasteRef = null;
       let saveTimer;
@@ -51,7 +56,7 @@
         initRealtimeSync();
       };
 
-      // === 🧠 Initialize Live Sync ===
+      // === 🧠 Realtime Sync ===
       function initRealtimeSync() {
         const codeBox = document.getElementById("codeBox");
         const notesBox = document.getElementById("notesBox");
@@ -73,10 +78,10 @@
         notesBox.addEventListener("input", debounceSave);
 
         codeBox.addEventListener("paste", (e) =>
-          handlePaste(e, codeImgPreview)
+          handlePaste(e, codeImgPreview, "A")
         );
         notesBox.addEventListener("paste", (e) =>
-          handlePaste(e, notesImgPreview)
+          handlePaste(e, notesImgPreview, "B")
         );
       }
 
@@ -101,39 +106,44 @@
         });
       }
 
-      // === 🖼 Compress image before save ===
-      async function compressBase64(base64, maxWidth = 800, quality = 0.7) {
-        return new Promise((resolve) => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement("canvas");
-            const scale = Math.min(1, maxWidth / img.width);
-            canvas.width = img.width * scale;
-            canvas.height = img.height * scale;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            resolve(canvas.toDataURL("image/jpeg", quality));
-          };
-          img.src = base64;
-        });
-      }
-
-      // === 📋 Handle image paste ===
-      function handlePaste(e, previewEl) {
+      // === ☁️ Handle Paste + Upload to Cloudinary ===
+      function handlePaste(e, previewEl, which) {
         const items = e.clipboardData.items;
         for (const item of items) {
           if (item.type.indexOf("image") !== -1) {
             const file = item.getAsFile();
-            const reader = new FileReader();
-            reader.onload = async (event) => {
-              const compressed = await compressBase64(event.target.result);
-              previewEl.src = compressed;
-              saveData();
-            };
-            reader.readAsDataURL(file);
+            uploadToCloudinary(file, previewEl, which);
             e.preventDefault();
             break;
           }
+        }
+      }
+
+      async function uploadToCloudinary(file, previewEl, which) {
+        const formData = new FormData();
+        formData.append("file", file);
+        formData.append("upload_preset", UPLOAD_PRESET);
+
+        try {
+          previewEl.src = ""; // clear old
+          previewEl.alt = "Uploading...";
+          const res = await fetch(CLOUDINARY_URL, {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+
+          if (data.secure_url) {
+            previewEl.src = data.secure_url;
+            previewEl.alt = "Image uploaded";
+            await saveData(); // sync URL
+          } else {
+            previewEl.alt = "Upload failed";
+            console.error("Cloudinary upload error:", data);
+          }
+        } catch (err) {
+          console.error("Error uploading to Cloudinary:", err);
+          previewEl.alt = "Error uploading";
         }
       }
     </script>
@@ -159,7 +169,6 @@
         flex-direction: column;
       }
 
-      /* === Join screen === */
       #joinScreen {
         flex: 1;
         display: flex;
@@ -189,9 +198,6 @@
         border-radius: 8px;
         cursor: pointer;
         font-size: 16px;
-      }
-      #joinScreen h2 {
-        margin-bottom: 20px;
       }
 
       header {
@@ -253,7 +259,7 @@
 
   <body>
     <header>
-      ⚡ Code Paste Bin (Dark Mode – Live + Room Code)
+      ⚡ Code Paste Bin (Dark Mode – Cloudinary CDN)
       <br />
       Room: <span id="roomLabel">None</span>
     </header>
