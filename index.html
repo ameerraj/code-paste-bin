@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <title>Code Paste Bin – Rooms + Live Sync (Cloudinary CDN)</title>
+    <title>Code Paste Bin – Text-Only Live Sync</title>
     <link
       href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
       rel="stylesheet"
@@ -19,7 +19,7 @@
 
       // === 🔧 Firebase Config ===
       const firebaseConfig = {
-        apiKey: "AIzaSyBXpUy7FLhGQOQ9mknPTu2Ac43XAtuHxQg",
+        apiKey: "YOUR_API_KEY",
         authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
         databaseURL:
           "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
@@ -29,16 +29,11 @@
       const app = initializeApp(firebaseConfig);
       const db = getDatabase(app);
 
-      // === 🔧 Cloudinary Config ===
-      const CLOUD_NAME = "do8rmb8aq"; // e.g. "dx123abc"
-      const UPLOAD_PRESET = "public_upload"; // your unsigned preset name
-      const CLOUDINARY_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
-
       let currentRoom = null;
       let pasteRef = null;
       let saveTimer;
 
-      // === 🧩 Join Room ===
+      // === 🧩 Join a Room ===
       window.joinRoom = function () {
         const input = document.getElementById("roomInput");
         const room = input.value.trim().toUpperCase();
@@ -56,12 +51,10 @@
         initRealtimeSync();
       };
 
-      // === 🧠 Realtime Sync ===
+      // === ⚡ Realtime Sync ===
       function initRealtimeSync() {
         const codeBox = document.getElementById("codeBox");
         const notesBox = document.getElementById("notesBox");
-        const codeImgPreview = document.getElementById("codeImgPreview");
-        const notesImgPreview = document.getElementById("notesImgPreview");
 
         onValue(pasteRef, (snapshot) => {
           const data = snapshot.val();
@@ -70,81 +63,26 @@
             codeBox.value = data.sectionA || "";
           if (notesBox.value !== data.sectionB)
             notesBox.value = data.sectionB || "";
-          if (data.imageA) codeImgPreview.src = data.imageA;
-          if (data.imageB) notesImgPreview.src = data.imageB;
         });
 
         codeBox.addEventListener("input", debounceSave);
         notesBox.addEventListener("input", debounceSave);
-
-        codeBox.addEventListener("paste", (e) =>
-          handlePaste(e, codeImgPreview, "A")
-        );
-        notesBox.addEventListener("paste", (e) =>
-          handlePaste(e, notesImgPreview, "B")
-        );
       }
 
       function debounceSave() {
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(saveData, 500);
+        saveTimer = setTimeout(saveData, 400);
       }
 
       async function saveData() {
         if (!pasteRef) return;
         const code = document.getElementById("codeBox").value;
         const notes = document.getElementById("notesBox").value;
-        const codeImg = document.getElementById("codeImgPreview").src || "";
-        const notesImg = document.getElementById("notesImgPreview").src || "";
-
         await set(pasteRef, {
           sectionA: code,
           sectionB: notes,
-          imageA: codeImg,
-          imageB: notesImg,
           timestamp: Date.now(),
         });
-      }
-
-      // === ☁️ Handle Paste + Upload to Cloudinary ===
-      function handlePaste(e, previewEl, which) {
-        const items = e.clipboardData.items;
-        for (const item of items) {
-          if (item.type.indexOf("image") !== -1) {
-            const file = item.getAsFile();
-            uploadToCloudinary(file, previewEl, which);
-            e.preventDefault();
-            break;
-          }
-        }
-      }
-
-      async function uploadToCloudinary(file, previewEl, which) {
-        const formData = new FormData();
-        formData.append("file", file);
-        formData.append("upload_preset", UPLOAD_PRESET);
-
-        try {
-          previewEl.src = ""; // clear old
-          previewEl.alt = "Uploading...";
-          const res = await fetch(CLOUDINARY_URL, {
-            method: "POST",
-            body: formData,
-          });
-          const data = await res.json();
-
-          if (data.secure_url) {
-            previewEl.src = data.secure_url;
-            previewEl.alt = "Image uploaded";
-            await saveData(); // sync URL
-          } else {
-            previewEl.alt = "Upload failed";
-            console.error("Cloudinary upload error:", data);
-          }
-        } catch (err) {
-          console.error("Error uploading to Cloudinary:", err);
-          previewEl.alt = "Error uploading";
-        }
       }
     </script>
 
@@ -241,25 +179,16 @@
       textarea:focus {
         border-color: var(--accent);
       }
-      img {
-        max-width: 100%;
-        max-height: 200px;
-        border-radius: 8px;
-        margin-top: 10px;
-        background: #000;
-        object-fit: contain;
-      }
-      p.hint {
-        font-size: 13px;
-        color: #aaa;
-        margin-top: 6px;
+      h3 {
+        margin-top: 0;
+        margin-bottom: 8px;
       }
     </style>
   </head>
 
   <body>
     <header>
-      ⚡ Code Paste Bin (Dark Mode – Cloudinary CDN)
+      ⚡ Code Paste Bin (Dark Mode – Text Only)
       <br />
       Room: <span id="roomLabel">None</span>
     </header>
@@ -275,22 +204,17 @@
         <h3>💻 Code</h3>
         <textarea
           id="codeBox"
-          placeholder="Type or paste your code here (Ctrl+V images to attach)..."
+          placeholder="Type or paste your code here..."
         ></textarea>
-        <p class="hint">Paste an image directly here using Ctrl + V</p>
-        <img id="codeImgPreview" alt="Code image preview" />
       </div>
 
       <div class="pane">
         <h3>📝 Notes</h3>
         <textarea
           id="notesBox"
-          placeholder="Write notes here (Ctrl+V images to attach)..."
+          placeholder="Write notes here..."
         ></textarea>
-        <p class="hint">Paste an image directly here using Ctrl + V</p>
-        <img id="notesImgPreview" alt="Notes image preview" />
       </div>
     </div>
   </body>
 </html>
-
