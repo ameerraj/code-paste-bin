@@ -1,220 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Code Paste Bin – Text-Only Live Sync</title>
-    <link
-      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;600&display=swap"
-      rel="stylesheet"
-    />
+<head>
+  <meta charset="UTF-8">
+  <title>Realtime Pastebin</title>
+  <style>
+    body { background:#1e1e1e; color:#eee; font-family:sans-serif; margin:0; padding:1rem; }
+    textarea { width:100%; height:80vh; background:#2d2d2d; color:#fff;
+               border:1px solid #444; font-family:monospace; font-size:1rem; padding:1rem; }
+  </style>
+</head>
+<body>
+  <input id="sessionCode" placeholder="Enter 2-digit code (e.g. AB)" maxlength="4">
+  <button id="connectBtn">Connect</button>
+  <textarea id="output" placeholder="Type here..."></textarea>
 
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
-      import {
-        getDatabase,
-        ref,
-        set,
-        onValue,
-      } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-app.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/12.4.0/firebase-database.js";
 
-      // === 🔧 Firebase Config ===
-      const firebaseConfig = {
-        apiKey: "YOUR_API_KEY",
-        authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-        databaseURL:
-          "https://YOUR_PROJECT_ID-default-rtdb.firebaseio.com",
-        projectId: "YOUR_PROJECT_ID",
-      };
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "code-paste-bin.firebaseapp.com",
+      databaseURL: "https://code-paste-bin-default-rtdb.europe-west1.firebasedatabase.app",
+      projectId: "code-paste-bin",
+      storageBucket: "code-paste-bin.firebasestorage.app",
+      messagingSenderId: "803684676109",
+      appId: "1:803684676109:web:c97c23cae2c0df14615b44"
+    };
 
-      const app = initializeApp(firebaseConfig);
-      const db = getDatabase(app);
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
 
-      let currentRoom = null;
-      let pasteRef = null;
-      let saveTimer;
+    const output = document.getElementById("output");
+    const btn = document.getElementById("connectBtn");
+    const codeInput = document.getElementById("sessionCode");
 
-      // === 🧩 Join a Room ===
-      window.joinRoom = function () {
-        const input = document.getElementById("roomInput");
-        const room = input.value.trim().toUpperCase();
-        if (!room) {
-          alert("Enter a room code first!");
-          return;
+    btn.addEventListener("click", () => {
+      const code = codeInput.value.trim().toUpperCase();
+      if (!code) return alert("Enter a code first.");
+      const pasteRef = ref(db, "paste/" + code);
+      let isLocalChange = false;
+
+      // Listen for remote updates
+      onValue(pasteRef, (snapshot) => {
+        const val = snapshot.val() || "";
+        if (!isLocalChange && val !== output.value) {
+          output.value = val;
         }
+        isLocalChange = false;
+      });
 
-        currentRoom = room;
-        pasteRef = ref(db, "rooms/" + room);
-        document.getElementById("joinScreen").style.display = "none";
-        document.getElementById("workspace").style.display = "flex";
-        document.getElementById("roomLabel").textContent = room;
+      // Send local edits
+      output.addEventListener("input", () => {
+        isLocalChange = true;
+        set(pasteRef, output.value);
+      });
 
-        initRealtimeSync();
-      };
-
-      // === ⚡ Realtime Sync ===
-      function initRealtimeSync() {
-        const codeBox = document.getElementById("codeBox");
-        const notesBox = document.getElementById("notesBox");
-
-        onValue(pasteRef, (snapshot) => {
-          const data = snapshot.val();
-          if (!data) return;
-          if (codeBox.value !== data.sectionA)
-            codeBox.value = data.sectionA || "";
-          if (notesBox.value !== data.sectionB)
-            notesBox.value = data.sectionB || "";
-        });
-
-        codeBox.addEventListener("input", debounceSave);
-        notesBox.addEventListener("input", debounceSave);
-      }
-
-      function debounceSave() {
-        clearTimeout(saveTimer);
-        saveTimer = setTimeout(saveData, 400);
-      }
-
-      async function saveData() {
-        if (!pasteRef) return;
-        const code = document.getElementById("codeBox").value;
-        const notes = document.getElementById("notesBox").value;
-        await set(pasteRef, {
-          sectionA: code,
-          sectionB: notes,
-          timestamp: Date.now(),
-        });
-      }
-    </script>
-
-    <style>
-      :root {
-        --bg: #0f1117;
-        --panel: #1b1e27;
-        --text: #e4e6eb;
-        --accent: #4a90e2;
-        --border: #2a2e3d;
-      }
-      * {
-        box-sizing: border-box;
-      }
-      body {
-        margin: 0;
-        background: var(--bg);
-        color: var(--text);
-        font-family: "Inter", sans-serif;
-        height: 100vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      #joinScreen {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-direction: column;
-      }
-      #joinScreen input {
-        background: var(--panel);
-        color: var(--text);
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 15px;
-        font-size: 18px;
-        text-align: center;
-        width: 160px;
-        letter-spacing: 2px;
-        text-transform: uppercase;
-        font-family: "JetBrains Mono", monospace;
-      }
-      #joinScreen button {
-        margin-top: 15px;
-        background: var(--accent);
-        color: white;
-        border: none;
-        padding: 10px 20px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-      }
-
-      header {
-        text-align: center;
-        padding: 10px 0;
-        background: var(--panel);
-        border-bottom: 1px solid var(--border);
-        font-weight: 600;
-      }
-      header span {
-        color: var(--accent);
-      }
-
-      .workspace {
-        flex: 1;
-        display: none;
-        overflow: hidden;
-      }
-      .pane {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        padding: 15px;
-        border-right: 1px solid var(--border);
-      }
-      .pane:last-child {
-        border-right: none;
-      }
-      textarea {
-        flex: 1;
-        background: var(--panel);
-        border: 1px solid var(--border);
-        color: var(--text);
-        resize: none;
-        font-family: "JetBrains Mono", monospace;
-        font-size: 15px;
-        padding: 10px;
-        border-radius: 8px;
-        outline: none;
-      }
-      textarea:focus {
-        border-color: var(--accent);
-      }
-      h3 {
-        margin-top: 0;
-        margin-bottom: 8px;
-      }
-    </style>
-  </head>
-
-  <body>
-    <header>
-      ⚡ Code Paste Bin (Dark Mode – Text Only)
-      <br />
-      Room: <span id="roomLabel">None</span>
-    </header>
-
-    <div id="joinScreen">
-      <h2>Join a Room</h2>
-      <input id="roomInput" maxlength="8" placeholder="Room Code" />
-      <button onclick="joinRoom()">Join</button>
-    </div>
-
-    <div class="workspace" id="workspace">
-      <div class="pane">
-        <h3>💻 Code</h3>
-        <textarea
-          id="codeBox"
-          placeholder="Type or paste your code here..."
-        ></textarea>
-      </div>
-
-      <div class="pane">
-        <h3>📝 Notes</h3>
-        <textarea
-          id="notesBox"
-          placeholder="Write notes here..."
-        ></textarea>
-      </div>
-    </div>
-  </body>
+      alert("Connected to room " + code);
+    });
+  </script>
+</body>
 </html>
