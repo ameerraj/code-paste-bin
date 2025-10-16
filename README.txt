@@ -1,7 +1,7 @@
 How to use: 
 
 1. access this link https://code-paste-bin.vercel.app/
-2. Use a custom 2 digit code of your choice (2-4 digits is the allowed range) on the top right corner 
+2. Use a custom 2 digit code of your choice (2-4 digits is the allowed range) on the top left corner 
 3. hit connect and do the same on your other device
 4. You now have a collaborative text box between devices. (which updates at almost live)
 
